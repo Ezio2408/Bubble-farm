@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bubble Farm</title>
+<style>
+  :root {
+    --bg: #f5f4ef;
+    --surface: #ffffff;
+    --surface2: #ebe9e0;
+    --text: #2c2c2a;
+    --muted: #6b6a64;
+    --border: #d3d1c7;
+    --accent-bg: #e6f1fb;
+    --accent-text: #0c447c;
+    --ok: #3b6d11;
+    --bad: #a32d2d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1f1f1d;
+      --surface: #2a2a28;
+      --surface2: #343432;
+      --text: #f1efe8;
+      --muted: #b4b2a9;
+      --border: #4a4a47;
+      --accent-bg: #0c447c;
+      --accent-text: #b5d4f4;
+      --ok: #97c459;
+      --bad: #f09595;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+  }
+  main { width: 100%; max-width: 520px; }
+  h1 { font-size: 24px; font-weight: 500; margin: 0 0 8px; }
+  .stats { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .coins {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 18px;
+    font-weight: 500;
+  }
+  .muted { font-size: 13px; color: var(--muted); }
+  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  button {
+    font: inherit;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .tab {
+    padding: 6px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    font-size: 14px;
+  }
+  .tab.active { background: var(--surface2); font-weight: 500; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  #field {
+    position: relative;
+    width: 100%;
+    height: 340px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  #ground {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 40px;
+    background: rgba(107,124,77,0.15);
+    border-top: 2px solid rgba(107,124,77,0.3);
+  }
+  #hint {
+    position: absolute; bottom: 8px; left: 0; right: 0;
+    text-align: center; font-size: 11px; color: var(--muted);
+    pointer-events: none;
+  }
+  .bubble {
+    position: absolute;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    cursor: pointer;
+  }
+  .bubble.golden { box-shadow: 0 0 12px rgba(251,191,36,0.7); }
+  .bubble.pop { animation: pop 0.3s ease-out forwards; pointer-events: none; }
+  @keyframes pop {
+    0% { opacity: 1; scale: 1; }
+    100% { opacity: 0; scale: 1.6; }
+  }
+  .float {
+    position: absolute;
+    font-weight: 600;
+    font-size: 14px;
+    pointer-events: none;
+    animation: floatUp 0.8s ease-out forwards;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  }
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, -40px); }
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 8px;
+  }
+  .card .info { flex: 1; }
+  .card .name { font-weight: 500; font-size: 15px; }
+  .card .desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .buy {
+    min-width: 84px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    font-size: 13px; font-weight: 500;
+    color: var(--muted);
+  }
+  .buy.can { background: var(--accent-bg); color: var(--accent-text); border-color: var(--accent-text); }
+  .buy:disabled { cursor: default; }
+
+  .puzzle-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    max-width: 220px;
+    margin: 14px 0;
+  }
+  .cell, .grid input {
+    width: 100%;
+    padding: 9px 4px;
+    text-align: center;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 16px;
+    font-weight: 500;
+  }
+  .grid input { border-color: var(--accent-text); }
+  .primary {
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--accent-text);
+    background: var(--accent-bg);
+    color: var(--accent-text);
+    font-size: 14px; font-weight: 500;
+  }
+  .ghost {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  #puzzleMsg { font-weight: 500; font-size: 14px; margin-bottom: 10px; min-height: 20px; }
+  .row { display: flex; gap: 8px; }
+  .reset { margin-top: 18px; font-size: 12px; color: var(--muted); background: none; border: none; text-decoration: underline; padding: 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Bubble Farm</h1>
+
+  <div class="stats">
+    <div class="coins">🪙 <span id="coins">0</span></div>
+    <div class="muted">Σύνολο: <span id="total">0</span></div>
+    <div class="muted" id="idleInfo"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="farm">Farm</button>
+    <button class="tab" data-tab="shop">Shop</button>
+    <button class="tab" data-tab="puzzle">Puzzle</button>
+  </div>
+
+  <section id="farm" class="panel active">
+    <div id="field">
+      <div id="ground"></div>
+      <div id="hint">πάτα τα μπαλόνια για να τα σκάσεις!</div>
+    </div>
+  </section>
+
+  <section id="shop" class="panel"></section>
+
+  <section id="puzzle" class="panel">
+    <div class="puzzle-box">
+      <div class="muted">Λύσε το puzzle και κέρδισε bonus coins. Κάθε γραμμή είναι αριθμητική πρόοδος (ίδια διαφορά ανάμεσα στους αριθμούς). Συμπλήρωσε τα κενά.</div>
+      <div class="muted" style="margin-top:8px">Puzzles που έλυσες: <b id="solved">0</b></div>
+      <div id="puzzleArea"></div>
+    </div>
+  </section>
+
+  <button class="reset" id="resetBtn">Μηδενισμός προόδου</button>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var SAVE_KEY = "bubbleFarmSave_v1";
+
+  var UPGRADE_DEFS = [
+    { id: "faster", name: "Γρηγορότερα μπαλόνια", desc: "Τα μπαλόνια εμφανίζονται πιο συχνά", cost: 30,  max: 5 },
+    { id: "bigger", name: "Μεγαλύτερα σκασίματα", desc: "+2 coins ανά μπαλόνι",               cost: 50,  max: 5 },
+    { id: "idle",   name: "Αυτόματη συγκομιδή",   desc: "+1 coin/δευτ. ακόμα και χωρίς κλικ", cost: 80,  max: 5 },
+    { id: "golden", name: "Τυχερό χώμα",          desc: "+5% πιθανότητα χρυσού μπαλονιού",    cost: 120, max: 3 },
+    { id: "mega",   name: "Mega Pop",              desc: "10% πιθανότητα για 3x αξία (ανά επίπεδο)", cost: 200, max: 3 }
+  ];
+
+  var COLORS = ["#a78bfa", "#6ee7b7", "#93c5fd", "#f9a8d4", "#fcd34d"];
+
+  var state = {
+    coins: 0,
+    total: 0,
+    solved: 0,
+    bought: { faster: 0, bigger: 0, idle: 0, golden: 0, mega: 0 }
+  };
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return;
+      var s = JSON.parse(raw);
+      state.coins = Number(s.coins) || 0;
+      state.total = Number(s.total) || 0;
+      state.solved = Number(s.solved) || 0;
+      UPGRADE_DEFS.forEach(function (u) {
+        state.bought[u.id] = Math.min(u.max, Number(s.bought && s.bought[u.id]) || 0);
+      });
+    } catch (e) {}
+  }
+
+  function save() {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var field = $("field");
+
+  function addCoins(n) {
+    state.coins += n;
+    state.total += n;
+    updateHud();
+  }
+
+  function updateHud() {
+    $("coins").textContent = Math.floor(state.coins);
+    $("total").textContent = Math.floor(state.total);
+    $("solved").textContent = state.solved;
+    var idle = state.bought.idle;
+    $("idleInfo").textContent = idle > 0 ? "+" + idle + "/δευτ." : "";
+    refreshShopButtons();
+  }
+
+  var tabs = document.querySelectorAll(".tab");
+  tabs.forEach(function (t) {
+    t.addEventListener("click", function () {
+      tabs.forEach(function (x) { x.classList.remove("active"); });
+      document.querySelectorAll(".panel").forEach(function (p) { p.classList.remove("active"); });
+      t.classList.add("active");
+      $(t.dataset.tab).classList.add("active");
+    });
+  });
+
+  var bubbles = [];
+  var lastSpawn = 0;
+  var lastFrame = performance.now();
+
+  function spawnInterval() { return 2200 - state.bought.faster * 350; }
+
+  function makeBubble() {
+    var goldenChance = 0.04 + state.bought.golden * 0.05;
+    var golden = Math.random() < goldenChance;
+    var size = golden ? 46 : 30 + Math.random() * 20;
+    var base = golden ? 15 : 1 + Math.floor(Math.random() * 3);
+    var value = base + state.bought.bigger * 2;
+    var color = golden ? "#f59e0b" : COLORS[Math.floor(Math.random() * COLORS.length)];
+
+    var el = document.createElement("div");
+    el.className = "bubble" + (golden ? " golden" : "");
+    el.style.width = size + "px";
+    el.style.height = size + "px";
+    el.style.background = golden
+      ? "radial-gradient(circle at 35% 35%, #fef3c7, #f59e0b)"
+      : "radial-gradient(circle at 35% 35%, " + color + "ee, " + color + "77)";
+    el.style.border = "1.5px solid " + color;
+    el.textContent = "+" + value;
+
+    var b = {
+      el: el,
+      x: 8 + Math.random() * 84,
+      y: -size,
+      size: size,
+      speed: 0.35 + Math.random() * 0.45,
+      wobble: Math.random() * Math.PI * 2,
+      value: value,
+      popped: false
+    };
+
+    var h = function (e) { e.preventDefault(); popBubble(b); };
+    el.addEventListener("pointerdown", h);
+
+    field.appendChild(el);
+    bubbles.push(b);
+  }
+
+  function popBubble(b) {
+    if (b.popped) return;
+    b.popped = true;
+    var mega = Math.random() < state.bought.mega * 0.1;
+    var earned = mega ? b.value * 3 : b.value;
+    addCoins(earned);
+
+    var fx = document.createElement("div");
+    fx.className = "float";
+    fx.textContent = "+" + earned + (mega ? " ✨" : "");
+    fx.style.left = b.el.offsetLeft + b.size / 2 + "px";
+    fx.style.top = b.el.offsetTop + "px";
+    fx.style.color = mega ? "#f59e0b" : "var(--text)";
+    if (mega) fx.style.fontSize = "18px";
+    field.appendChild(fx);
+    setTimeout(function () { fx.remove(); }, 800);
+
+    b.el.classList.add("pop");
+    setTimeout(function () { b.el.remove(); }, 300);
+  }
+
+  function frame(now) {
+    var dt = Math.min(now - lastFrame, 100);
+    lastFrame = now;
+    var h = field.clientHeight;
+    var w = field.clientWidth;
+
+    if (now - lastSpawn > spawnInterval()) {
+      lastSpawn = now;
+      if (bubbles.filter(function (b) { return !b.popped; }).length < 14) makeBubble();
+    }
+
+    for (var i = bubbles.length - 1; i >= 0; i--) {
+      var b = bubbles[i];
+      if (b.popped) { bubbles.splice(i, 1); continue; }
+      b.y += b.speed * (dt / 16);
+      b.wobble += 0.03 * (dt / 16);
+      if (b.y > h + b.size) {
+        b.el.remove();
+        bubbles.splice(i, 1);
+        continue;
+      }
+      var left = (b.x / 100) * w + Math.sin(b.wobble) * 6;
+      b.el.style.left = left + "px";
+      b.el.style.top = h - b.y - b.size + "px";
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function cost(u) { return Math.floor(u.cost * Math.pow(1.6, state.bought[u.id])); }
+
+  function buildShop() {
+    var shop = $("shop");
+    shop.innerHTML = "";
+    UPGRADE_DEFS.forEach(function (u) {
+      var card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML =
+        '<div class="info">' +
+          '<div class="name">' + u.name + '</div>' +
+          '<div class="desc">' + u.desc + '</div>' +
+          '<div class="desc" data-count="' + u.id + '"></div>' +
+        '</div>' +
+        '<button class="buy" data-buy="' + u.id + '"></button>';
+      shop.appendChild(card);
+    });
+    shop.querySelectorAll("[data-buy]").forEach(function (btn) {
+      btn.addEventListener("click", function () { buy(btn.dataset.buy); });
+    });
+    refreshShopButtons();
+  }
+
+  function refreshShopButtons() {
+    UPGRADE_DEFS.forEach(function (u) {
+      var btn = document.querySelector('[data-buy="' + u.id + '"]');
+      var cnt = document.querySelector('[data-count="' + u.id + '"]');
+      if (!btn) return;
+      var maxed = state.bought[u.id] >= u.max;
+      var c = cost(u);
+      var can = !maxed && state.coins >= c;
+      btn.textContent = maxed ? "Μέγιστο" : "🪙 " + c;
+      btn.disabled = !can;
+      btn.className = "buy" + (can ? " can" : "");
+      cnt.textContent = state.bought[u.id] + "/" + u.max + " αγορές";
+    });
+  }
+
+  function buy(id) {
+    var u = UPGRADE_DEFS.filter(function (x) { return x.id === id; })[0];
+    if (state.bought[id] >= u.max) return;
+    var c = cost(u);
+    if (state.coins < c) return;
+    state.coins -= c;
+    state.bought[id]++;
+    updateHud();
+    save();
+  }
+
+  var puzzle = null;
+
+  function renderPuzzleIdle() {
+    var reward = 40 + state.solved * 15;
+    $("puzzleArea").innerHTML =
+      '<div style="margin-top:14px"><button class="primary" id="startPuzzle">Ξεκίνα puzzle (+' + reward + ' 🪙)</button></div>' +
+      '<div id="puzzleMsg" style="margin-top:12px"></div>';
+    $("startPuzzle").addEventListener("click", newPuzzle);
+  }
+
+  function newPuzzle() {
+    var grid = [];
+    var blanks = [];
+    for (var r = 0; r < 3; r++) {
+      var start = 1 + Math.floor(Math.random() * 6);
+      var step = 1 + Math.floor(Math.random() * 4);
+      var row = [];
+      for (var c = 0; c < 3; c++) row.push(start + step * c);
+      grid.push(row);
+      blanks.push([r, Math.floor(Math.random() * 3)]);
+    }
+    puzzle = { grid: grid, blanks: blanks, reward: 40 + state.solved * 15 };
+    renderPuzzle();
+  }
+
+  function renderPuzzle() {
+    var html = '<div class="grid">';
+    for (var r = 0; r < 3; r++) {
+      for (var c = 0; c < 3; c++) {
+        var bi = -1;
+        for (var k = 0; k < puzzle.blanks.length; k++) {
+          if (puzzle.blanks[k][0] === r && puzzle.blanks[k][1] === c) bi = k;
+        }
+        if (bi >= 0) html += '<input type="number" inputmode="numeric" data-blank="' + bi + '">';
+        else html += '<div class="cell">' + puzzle.grid[r][c] + '</div>';
+      }
+    }
+    html += '</div>';
+    html += '<div class="muted" style="margin-bottom:10px">Συμβουλή: βρες τη διαφορά ανάμεσα στους δύο αριθμούς κάθε γραμμής.</div>';
+    html += '<div id="puzzleMsg"></div>';
+    html += '<div class="row"><button class="primary" id="checkPuzzle">Έλεγχος</button><button class="ghost" id="cancelPuzzle">Ακύρωση</button></div>';
+    $("puzzleArea").innerHTML = html;
+    $("checkPuzzle").addEventListener("click", checkPuzzle);
+    $("cancelPuzzle").addEventListener("click", function () { puzzle = null; renderPuzzleIdle(); });
+  }
+
+  function checkPuzzle() {
+    var inputs = document.querySelectorAll("[data-blank]");
+    var ok = true;
+    inputs.forEach(function (inp) {
+      var bl = puzzle.blanks[Number(inp.dataset.blank)];
+      if (parseInt(inp.value, 10) !== puzzle.grid[bl[0]][bl[1]]) ok = false;
+    });
+    var msg = $("puzzleMsg");
+    if (!ok) {
+      msg.style.color = "var(--bad)";
+      msg.textContent = "Σχεδόν! Δοκίμασε ξανά.";
+      return;
+    }
+    var reward = puzzle.reward;
+    state.solved++;
+    addCoins(reward);
+    save();
+    puzzle = null;
+    renderPuzzleIdle();
+    var m = $("puzzleMsg");
+    m.style.color = "var(--ok)";
+    m.textContent = "Σωστό! +" + reward + " coins!";
+  }
+
+  $("resetBtn").addEventListener("click", function () {
+    if (!confirm("Σίγουρα θέλεις να μηδενίσεις την πρόοδο;")) return;
+    state.coins = 0; state.total = 0; state.solved = 0;
+    UPGRADE_DEFS.forEach(function (u) { state.bought[u.id] = 0; });
+    save();
+    updateHud();
+  });
+
+  setInterval(function () {
+    var idle = state.bought.idle;
+    if (idle > 0) addCoins(idle);
+  }, 1000);
+
+  setInterval(save, 5000);
+  window.addEventListener("beforeunload", save);
+
+  load();
+  buildShop();
+  renderPuzzleIdle();
+  updateHud();
+  requestAnimationFrame(function (t) { lastFrame = t; lastSpawn = t; frame(t); });
+})();
+</script>
+</body>
+</html>
